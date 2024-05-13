@@ -8,6 +8,8 @@
 
 #include "Functions.h";
 
+//#include <ostream>
+
 class Table
 {
     friend class Club;
@@ -70,6 +72,7 @@ private:
     int price;
 
     std::vector<Client> clients;
+    std::vector<Client> sitClients;
     std::queue<Client> waiting;
     std::vector<Table> tables;
 
@@ -95,6 +98,7 @@ public:
     void handleEvent(Client& client);
     void endOfDay();
 
+    std::string getOpenTime() const;
     bool clubIsOpen(const int enterTime) const;
     bool isInClub(const Client& client) const;
     bool isTableFree(const int tableNumber) const;
@@ -104,7 +108,7 @@ public:
 int main(int argc, char* argv[])
 {
     std::vector<std::string> input;
-    readFile(input, "input3.txt");
+    readFile(input, "input.txt");
 
     std::vector<Client> clients;
 
@@ -127,10 +131,7 @@ int main(int argc, char* argv[])
 
     Club club(input);
 
-    for (int i = 0; i < 3; i++)
-    {
-        std::cout << input[i] << std::endl;
-    }
+    std::cout << club.getOpenTime() << std::endl;
     for (auto& cl : clients)
     {
         club.handleEvent(cl);
@@ -138,6 +139,11 @@ int main(int argc, char* argv[])
 
     club.endOfDay();
 
+}
+
+std::string Club::getOpenTime() const
+{
+    return minutesToTime(openTime);
 }
 
 void Club::handleEvent(Client& client)
@@ -196,23 +202,21 @@ void Club::handleEvent(Client& client)
             {
                 if (client == cl)
                 {
-                    cl.tableNumber = client.tableNumber;
-                    cl.sitTime = timeInt;
+                    /*cl.tableNumber = client.tableNumber;
+                    cl.sitTime = timeInt;*/
+                    sitClients.push_back(cl);
+                    sitClients[sitClients.size()-1].tableNumber = client.tableNumber;
+                    sitClients[sitClients.size()-1].sitTime = timeInt;
+                    
                 }
             }
-            tables[client.tableNumber - 1].money += price;
 
             return;
         }
         break;
 
-    case 3: // В кейсе 3 добавлено условие, есть ли клиент в клубе. Потому что, если его нет, то почему он тогда ждет? 
+    case 3:
         std::cout << client << std::endl;
-        if (!isInClub(client))
-        {
-            std::cout << client.eventTime << " 13 ClientUnknown\n";
-            return;
-        }
         if (isAllTablesFree())
         {
             std::cout << client.eventTime << " 13 ICanWaitNoLonger!\n";
@@ -230,28 +234,32 @@ void Club::handleEvent(Client& client)
         else
         {
             if (!waiting.empty()) {
-                for (int i = 0; i < clients.size(); i++)
+                for (int i = 0; i < sitClients.size(); i++)
                 {
-                    if (clients[i] == client)
+                    if (sitClients[i] == client)
                     {
-                        clients[i] = waiting.front();
+                        sitClients[i].leavingTime = timeInt;
+                        tables[sitClients[i].tableNumber - 1].workTime += (sitClients[i].leavingTime - sitClients[i].sitTime);
+                        tables[sitClients[i].tableNumber - 1].money += (tables[sitClients[i].tableNumber - 1].workTime + 60 - 1) / 60 * price;
+                        sitClients[i] = waiting.front();
+                        sitClients[i].sitTime = timeInt;
                         waiting.pop();
-                        tables[i].money += price;
-                        std::cout << client.eventTime << " 12 " << clients[i].name << " " << tables[i].number << std::endl;
+                        std::cout << client.eventTime << " 12 " << sitClients[i].name << " " << tables[i].number << std::endl;
                         return;
                     }
                 }
             }
             else
             {
-                for (int i = 0; i < clients.size(); i++)
+                for (int i = 0; i < sitClients.size(); i++)
                 {
-                    if (client == clients[i])
+                    if (client == sitClients[i])
                     {
-                        clients[i].leavingTime = timeInt;
-                        tables[client.tableNumber - 1].money += (clients[i].leavingTime - clients[i].sitTime + 60 - 1) / 60 * price;
-                        clients.erase(clients.begin() + i);
-                        tables[i].isFree = true;
+                        sitClients[i].leavingTime = timeInt;
+                        tables[sitClients[i].tableNumber - 1].workTime += sitClients[i].leavingTime - sitClients[i].sitTime;
+                        tables[sitClients[i].tableNumber - 1].money += (tables[sitClients[i].tableNumber - 1].workTime + 60 - 1) / 60 * price;
+                        sitClients.erase(sitClients.begin() + i);
+                        tables[sitClients[i].tableNumber - 1].isFree = true;
                     }
                 }
             }
@@ -275,6 +283,11 @@ bool Club::isInClub(const Client& client) const
         if (cl == client)
             return true;
     }
+    for (auto& s : sitClients)
+    {
+        if (s == client)
+            return true;
+    }
     return false;
 }
 
@@ -296,19 +309,19 @@ bool Club::isAllTablesFree() const
 void Club::endOfDay()
 {
 
-    for (int i = 0; i < clients.size(); )
+    for (int i = 0; i < sitClients.size(); )
     {
-        std::cout << minutesToTime(closeTime) << " 11 " << clients[i].name << std::endl;
-        clients[i].leavingTime = closeTime;
-        tables[clients[i].tableNumber - 1].workTime = clients[i].leavingTime - clients[i].sitTime;
-        clients.erase(clients.begin() + i);
+        std::cout << minutesToTime(closeTime) << " 11 " << sitClients[i].name << std::endl;
+        sitClients[i].leavingTime = closeTime;
+        tables[sitClients[i].tableNumber - 1].workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
+        tables[sitClients[i].tableNumber - 1].money = ((sitClients[i].leavingTime - sitClients[i].sitTime) + 60 - 1) / 60 * price;
+        sitClients.erase(sitClients.begin() + i);
     }
 
     std::cout << minutesToTime(closeTime) << std::endl;
 
     for (auto& tb : tables)
     {
-
         std::cout << std::to_string(tb.number) << " " << std::to_string(tb.money) << " " << minutesToTime(tb.workTime) << std::endl;
     }
 
