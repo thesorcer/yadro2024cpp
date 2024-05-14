@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <queue>
 
-#include "Functions.h";
+#include "func.h";
 
 //#include <ostream>
 
@@ -107,8 +107,14 @@ public:
 
 int main(int argc, char* argv[])
 {
+    if (argc != 2)
+    {
+        std::cerr << "Expected $" << argv[0] << " filename.txt" << std::endl;
+        return 1;
+    }
+
     std::vector<std::string> input;
-    readFile(input, "input.txt");
+    readFile(input, argv[1]);
 
     std::vector<Client> clients;
 
@@ -202,8 +208,6 @@ void Club::handleEvent(Client& client)
             {
                 if (client == cl)
                 {
-                    /*cl.tableNumber = client.tableNumber;
-                    cl.sitTime = timeInt;*/
                     sitClients.push_back(cl);
                     sitClients[sitClients.size()-1].tableNumber = client.tableNumber;
                     sitClients[sitClients.size()-1].sitTime = timeInt;
@@ -239,11 +243,18 @@ void Club::handleEvent(Client& client)
                     if (sitClients[i] == client)
                     {
                         sitClients[i].leavingTime = timeInt;
-                        tables[sitClients[i].tableNumber - 1].workTime += (sitClients[i].leavingTime - sitClients[i].sitTime);
-                        tables[sitClients[i].tableNumber - 1].money += (tables[sitClients[i].tableNumber - 1].workTime + 60 - 1) / 60 * price;
-                        sitClients[i] = waiting.front();
-                        sitClients[i].sitTime = timeInt;
+                        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
+
+                        tables[sitClients[i].tableNumber - 1].workTime += workTime;
+                        tables[sitClients[i].tableNumber - 1].money += (workTime + 60 - 1) / 60 * price;
+
+                        sitClients.erase(sitClients.begin() + i);
+                        sitClients.push_back(waiting.front());
                         waiting.pop();
+
+                        sitClients[sitClients.size() - 1].sitTime = timeInt;
+                        sitClients[sitClients.size() - 1].tableNumber = client.tableNumber-1;
+
                         std::cout << client.eventTime << " 12 " << sitClients[i].name << " " << tables[i].number << std::endl;
                         return;
                     }
@@ -256,10 +267,15 @@ void Club::handleEvent(Client& client)
                     if (client == sitClients[i])
                     {
                         sitClients[i].leavingTime = timeInt;
-                        tables[sitClients[i].tableNumber - 1].workTime += sitClients[i].leavingTime - sitClients[i].sitTime;
-                        tables[sitClients[i].tableNumber - 1].money += (tables[sitClients[i].tableNumber - 1].workTime + 60 - 1) / 60 * price;
-                        sitClients.erase(sitClients.begin() + i);
+                        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
+
+                        tables[sitClients[i].tableNumber - 1].workTime += workTime;
+                        tables[sitClients[i].tableNumber - 1].money += (workTime + 60 - 1) / 60 * price;
                         tables[sitClients[i].tableNumber - 1].isFree = true;
+
+                        sitClients.erase(sitClients.begin() + i);
+
+                        return;
                     }
                 }
             }
@@ -313,8 +329,10 @@ void Club::endOfDay()
     {
         std::cout << minutesToTime(closeTime) << " 11 " << sitClients[i].name << std::endl;
         sitClients[i].leavingTime = closeTime;
-        tables[sitClients[i].tableNumber - 1].workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
-        tables[sitClients[i].tableNumber - 1].money = ((sitClients[i].leavingTime - sitClients[i].sitTime) + 60 - 1) / 60 * price;
+        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
+
+        tables[sitClients[i].tableNumber - 1].workTime = workTime;
+        tables[sitClients[i].tableNumber - 1].money = (workTime + 60 - 1) / 60 * price;
         sitClients.erase(sitClients.begin() + i);
     }
 
