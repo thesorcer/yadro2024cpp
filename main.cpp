@@ -1,14 +1,4 @@
-#include <iostream>
-#include <string>
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <iomanip>
-#include <queue>
-
 #include "func.h"
-
-//#include <ostream>
 
 class Table
 {
@@ -109,7 +99,7 @@ int main(int argc, char* argv[])
 {
     if (argc != 2)
     {
-        std::cerr << "Expected $" << argv[0] << " filename.txt" << std::endl;
+        std::cerr << "Expected $ " << argv[0] << " filename.txt" << std::endl;
         return 1;
     }
 
@@ -118,7 +108,6 @@ int main(int argc, char* argv[])
 
     std::vector<Client> clients;
 
-    // Проход по массиву с 3 элемента, т.к. 0, 1 и 2 строки это столы, время работы клуба и стоимость. Дальше идут клиенты
     for (int i = 3; i < input.size(); i++)
     {
         std::istringstream iss(input[i]);
@@ -286,42 +275,6 @@ void Club::handleEvent(Client& client)
         break;
     }
 }
-
-bool Club::clubIsOpen(int enterTime) const
-{
-    return (enterTime >= openTime && enterTime <= closeTime);
-}
-
-bool Club::isInClub(const Client& client) const
-{
-    for (auto& cl : clients)
-    {
-        if (cl == client)
-            return true;
-    }
-    for (auto& s : sitClients)
-    {
-        if (s == client)
-            return true;
-    }
-    return false;
-}
-
-bool Club::isTableFree(const int tableNumber) const
-{
-    return (tables[tableNumber - 1].isFree);
-}
-
-bool Club::isAllTablesFree() const
-{
-    for (auto& tb : tables)
-    {
-        if (tb.isFree == false)
-            return false;
-    }
-    return true;
-}
-
 void Club::endOfDay()
 {
 
@@ -344,4 +297,38 @@ void Club::endOfDay()
     }
 
 }
+
+bool Club::clubIsOpen(int enterTime) const
+{
+    return (enterTime >= openTime && enterTime <= closeTime);
+}
+bool Club::isInClub(const Client& client) const
+{
+    for (auto& cl : clients)
+    {
+        if (cl == client)
+            return true;
+    }
+    for (auto& s : sitClients)
+    {
+        if (s == client)
+            return true;
+    }
+    return false;
+}
+bool Club::isTableFree(const int tableNumber) const
+{
+    return (tables[tableNumber - 1].isFree);
+}
+bool Club::isAllTablesFree() const
+{
+    for (auto& tb : tables)
+    {
+        if (tb.isFree == false)
+            return false;
+    }
+    return true;
+}
+
+
 
