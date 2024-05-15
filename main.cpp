@@ -1,334 +1,176 @@
 #include "func.h"
 
-class Table
-{
-    friend class Club;
-
-private:
-    int number;
-    bool isFree = true;
-    int money = 0;
-    int workTime = 0;
-
-public:
-    Table(const int number) : number{ number }
-    {}
-};
-
-class Client
-{
-    friend class Club;
-
-private:
-    int sitTime = 0;
-    int leavingTime = 0;
-    int id;
-    std::string eventTime;
-    std::string name;
-    int tableNumber = 0;
-
-public:
-    Client(const std::string comingTime, const int id, const std::string name, const int tableNumber)
-    {
-        this->eventTime = comingTime;
-        this->id = id;
-        this->name = name;
-        this->tableNumber = tableNumber;
-
-    }
-
-    std::string getTime() const { return eventTime; }
-    int getId() const { return id; }
-    std::string getName() const { return name; }
-    int getTable() const { return tableNumber; }
-
-    bool operator == (const Client& client) const
-    {
-        return (client.name == this->name);
-    }
-};
-
-std::ostream& operator << (std::ostream& os, const Client& client)
-{
-    return os << client.getTime() << " " << client.getId() << " " << client.getName();
-}
-
-class Club {
-
-private:
-    int openTime;
-    int closeTime;
-    int allTables;
-    int price;
-
-    std::vector<Client> clients;
-    std::vector<Client> sitClients;
-    std::queue<Client> waiting;
-    std::vector<Table> tables;
-
-public:
-    Club(std::vector<std::string>& input)
-    {
-
-        std::istringstream iss(input[1]);
-        std::string openTime, closeTime;
-        iss >> openTime >> closeTime;
-
-        this->openTime = timeToMinutes(openTime);
-        this->closeTime = timeToMinutes(closeTime);
-        this->allTables = stoi(input[0]);
-        this->price = stoi(input[2]);
-
-        for (int i = 0; i < allTables; i++)
-        {
-            tables.push_back(i + 1);
-        }
-    }
-
-    void handleEvent(Client& client);
-    void endOfDay();
-
-    std::string getOpenTime() const;
-    bool clubIsOpen(const int enterTime) const;
-    bool isInClub(const Client& client) const;
-    bool isTableFree(const int tableNumber) const;
-    bool isAllTablesFree() const;
-};
-
-int main(int argc, char* argv[])
-{
-    if (argc != 2)
-    {
-        std::cerr << "Expected $ " << argv[0] << " filename.txt" << std::endl;
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        cerr << "Usage: " << argv[0] << " <input_file>" << endl;
         return 1;
     }
 
-    std::vector<std::string> input;
-    readFile(input, argv[1]);
-
-    std::vector<Client> clients;
-
-    for (int i = 3; i < input.size(); i++)
-    {
-        std::istringstream iss(input[i]);
-        std::string comingTime;
-        int id;
-        std::string name;
-        int tableNumber;
-
-        iss >> comingTime >> id >> name >> tableNumber;
-        int timeInt = timeToMinutes(comingTime);
-        if (timeInt < 0 || timeInt > 1439) break;
-
-        Client cl(comingTime, id, name, tableNumber);
-        clients.push_back(cl);
+    ifstream input_file(argv[1]);
+    if (!input_file.is_open()) {
+        cerr << "Error: Could not open file " << argv[1] << endl;
+        return 1;
     }
 
-    Club club(input);
+    int num_tables;
+    string start_time, end_time;
+    int cost_per_hour;
 
-    std::cout << club.getOpenTime() << std::endl;
-    for (auto& cl : clients)
-    {
-        club.handleEvent(cl);
+    input_file >> num_tables >> start_time >> end_time >> cost_per_hour;
+    input_file.ignore();
+
+    int start_minutes = timeToMinutes(start_time);
+    int end_minutes = timeToMinutes(end_time);
+
+    vector<Table> tables(num_tables);
+    for (int i = 0; i < num_tables; ++i) {
+        tables[i] = { i + 1, "", false, 0, 0 };
     }
 
-    club.endOfDay();
+    unordered_map<string, Client> clients;
+    queue<string> waiting_queue;
 
-}
+    string line;
+    vector<string> output_events;
+    output_events.push_back(start_time);
 
-std::string Club::getOpenTime() const
-{
-    return minutesToTime(openTime);
-}
+    while (getline(input_file, line)) {
+        vector<string> tokens = split(line, ' ');
 
-void Club::handleEvent(Client& client)
-{
-
-    int timeInt = timeToMinutes(client.eventTime);
-
-    switch (client.id)
-    {
-    case 1:
-        std::cout << client << std::endl;
-        if (!clubIsOpen(timeInt))
-        {
-            std::cout << client.eventTime << " 13 NotOpenYet\n";
-            return;
+        if (tokens.size() < 3) {
+            cerr << "Invalid input format: " << line << endl;
+            return 1;
         }
-        if (isInClub(client))
-        {
-            std::cout << client.eventTime << " 13 YouShallNotPass\n";
-            return;
+
+        string event_time = tokens[0];
+        int event_minutes = timeToMinutes(event_time);
+        int event_id = stoi(tokens[1]);
+        string client_name = tokens[2];
+
+        if (event_minutes < start_minutes || event_minutes >= end_minutes) {
+            output_events.push_back(line);
+            output_events.push_back(event_time + " 13 NotOpenYet");
+            continue;
         }
-        else
-        {
-            if (clients.size() < tables.size())
-                clients.push_back(client);
-            else
-            {
-                waiting.push(client);
-                if (waiting.size() > tables.size())
-                {
-                    waiting.pop();
-                    std::cout << client.eventTime << " 11 " << client.name << std::endl;
-                    return;
+
+        if (event_id == 1) {
+            if (clients.count(client_name)) {
+                output_events.push_back(line);
+                output_events.push_back(event_time + " 13 YouShallNotPass");
+            }
+            else {
+                clients[client_name] = { client_name, 0, event_time, false };
+                output_events.push_back(line);
+            }
+        }
+        else if (event_id == 2) {
+            int table_number = stoi(tokens[3]);
+            if (clients.find(client_name) == clients.end()) {
+                output_events.push_back(line);
+                output_events.push_back(event_time + " 13 ClientUnknown");
+            }
+            else {
+                Client& client = clients[client_name];
+                if (tables[table_number - 1].is_occupied) {
+                    output_events.push_back(line);
+                    output_events.push_back(event_time + " 13 PlaceIsBusy");
+                }
+                else {
+                    if (client.table != 0) {
+                        Table& old_table = tables[client.table - 1];
+                        int occupied_minutes = event_minutes - timeToMinutes(old_table.occupied_since);
+                        old_table.total_occupied_minutes += occupied_minutes;
+                        old_table.total_earnings += ((occupied_minutes + 59) / 60) * cost_per_hour;
+                        old_table.is_occupied = false;
+                    }
+                    client.table = table_number;
+                    tables[table_number - 1].is_occupied = true;
+                    tables[table_number - 1].occupied_since = event_time;
+                    output_events.push_back(line);
                 }
             }
-            return;
         }
-        break;
-
-    case 2:
-        std::cout << client << " " << client.tableNumber << std::endl;
-        if (!isTableFree(client.tableNumber))
-        {
-            std::cout << client.eventTime << " 13 PlaceIsBusy\n";
-            return;
-        }
-        if (!isInClub(client))
-        {
-            std::cout << client.eventTime << " 13 ClientUnknown\n";
-            return;
-        }
-        else
-        {
-            tables[client.tableNumber - 1].isFree = false;
-            for (auto& cl : clients)
-            {
-                if (client == cl)
-                {
-                    sitClients.push_back(cl);
-                    sitClients[sitClients.size()-1].tableNumber = client.tableNumber;
-                    sitClients[sitClients.size()-1].sitTime = timeInt;
-                    
-                }
+        else if (event_id == 3) {
+            if (clients.find(client_name) == clients.end()) {
+                output_events.push_back(line);
+                output_events.push_back(event_time + " 13 ClientUnknown");
             }
-
-            return;
-        }
-        break;
-
-    case 3:
-        std::cout << client << std::endl;
-        if (isAllTablesFree())
-        {
-            std::cout << client.eventTime << " 13 ICanWaitNoLonger!\n";
-            return;
-        }
-        break;
-
-    case 4:
-        std::cout << client << std::endl;
-        if (!isInClub(client))
-        {
-            std::cout << client.eventTime << " 13 ClientUnknown\n";
-            return;
-        }
-        else
-        {
-            if (!waiting.empty()) {
-                for (int i = 0; i < sitClients.size(); i++)
-                {
-                    if (sitClients[i] == client)
-                    {
-                        sitClients[i].leavingTime = timeInt;
-                        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
-
-                        tables[sitClients[i].tableNumber - 1].workTime += workTime;
-                        tables[sitClients[i].tableNumber - 1].money += (workTime + 60 - 1) / 60 * price;
-
-                        sitClients.erase(sitClients.begin() + i);
-                        sitClients.push_back(waiting.front());
-                        waiting.pop();
-
-                        sitClients[sitClients.size() - 1].sitTime = timeInt;
-                        sitClients[sitClients.size() - 1].tableNumber = client.tableNumber-1;
-
-                        std::cout << client.eventTime << " 12 " << sitClients[i].name << " " << tables[i].number << std::endl;
-                        return;
+            else {
+                bool has_free_table = false;
+                for (const auto& table : tables) {
+                    if (!table.is_occupied) {
+                        has_free_table = true;
+                        break;
                     }
                 }
-            }
-            else
-            {
-                for (int i = 0; i < sitClients.size(); i++)
-                {
-                    if (client == sitClients[i])
-                    {
-                        sitClients[i].leavingTime = timeInt;
-                        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
-
-                        tables[sitClients[i].tableNumber - 1].workTime += workTime;
-                        tables[sitClients[i].tableNumber - 1].money += (workTime + 60 - 1) / 60 * price;
-                        tables[sitClients[i].tableNumber - 1].isFree = true;
-
-                        sitClients.erase(sitClients.begin() + i);
-
-                        return;
-                    }
+                if (has_free_table) {
+                    output_events.push_back(line);
+                    output_events.push_back(event_time + " 13 ICanWaitNoLonger!");
+                }
+                else {
+                    waiting_queue.push(client_name);
+                    clients[client_name].waiting = true;
+                    output_events.push_back(line);
                 }
             }
         }
-        break;
-
-    default:
-        break;
+        else if (event_id == 4) {
+            if (clients.find(client_name) == clients.end()) {
+                output_events.push_back(line);
+                output_events.push_back(event_time + " 13 ClientUnknown");
+            }
+            else {
+                Client& client = clients[client_name];
+                if (client.table != 0) {
+                    Table& table = tables[client.table - 1];
+                    int occupied_minutes = event_minutes - timeToMinutes(table.occupied_since);
+                    table.total_occupied_minutes += occupied_minutes;
+                    table.total_earnings += ((occupied_minutes + 59) / 60) * cost_per_hour;
+                    table.is_occupied = false;
+                    client.table = 0;
+                    output_events.push_back(line);
+                    if (!waiting_queue.empty()) {
+                        string next_client_name = waiting_queue.front();
+                        waiting_queue.pop();
+                        clients[next_client_name].waiting = false;
+                        clients[next_client_name].table = table.number;
+                        table.is_occupied = true;
+                        table.occupied_since = event_time;
+                        output_events.push_back(event_time + " 12 " + next_client_name + " " + to_string(table.number));
+                    }
+                }
+                else {
+                    output_events.push_back(line);
+                }
+                clients.erase(client_name);
+            }
+        }
+        else {
+            cerr << "Invalid event ID: " << event_id << " in line: " << line << endl;
+            return 1;
+        }
     }
-}
-void Club::endOfDay()
-{
 
-    for (int i = 0; i < sitClients.size(); )
-    {
-        std::cout << minutesToTime(closeTime) << " 11 " << sitClients[i].name << std::endl;
-        sitClients[i].leavingTime = closeTime;
-        int workTime = sitClients[i].leavingTime - sitClients[i].sitTime;
-
-        tables[sitClients[i].tableNumber - 1].workTime = workTime;
-        tables[sitClients[i].tableNumber - 1].money = (workTime + 60 - 1) / 60 * price;
-        sitClients.erase(sitClients.begin() + i);
+    for (auto& [name, client] : clients) {
+        if (client.table != 0) {
+            Table& table = tables[client.table - 1];
+            int occupied_minutes = end_minutes - timeToMinutes(table.occupied_since);
+            table.total_occupied_minutes += occupied_minutes;
+            table.total_earnings += ((occupied_minutes + 59) / 60) * cost_per_hour;
+            output_events.push_back(end_time + " 11 " + name);
+        }
     }
 
-    std::cout << minutesToTime(closeTime) << std::endl;
+    output_events.push_back(end_time);
 
-    for (auto& tb : tables)
-    {
-        std::cout << std::to_string(tb.number) << " " << std::to_string(tb.money) << " " << minutesToTime(tb.workTime) << std::endl;
+    for (const auto& table : tables) {
+        output_events.push_back(to_string(table.number) + " " + to_string(table.total_earnings) + " " +
+            minutesToTime(table.total_occupied_minutes));
     }
 
-}
-
-bool Club::clubIsOpen(int enterTime) const
-{
-    return (enterTime >= openTime && enterTime <= closeTime);
-}
-bool Club::isInClub(const Client& client) const
-{
-    for (auto& cl : clients)
-    {
-        if (cl == client)
-            return true;
+    for (const auto& event : output_events) {
+        cout << event << endl;
     }
-    for (auto& s : sitClients)
-    {
-        if (s == client)
-            return true;
-    }
-    return false;
-}
-bool Club::isTableFree(const int tableNumber) const
-{
-    return (tables[tableNumber - 1].isFree);
-}
-bool Club::isAllTablesFree() const
-{
-    for (auto& tb : tables)
-    {
-        if (tb.isFree == false)
-            return false;
-    }
-    return true;
-}
 
-
-
+    return 0;
+}
