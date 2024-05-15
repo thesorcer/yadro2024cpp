@@ -1,53 +1,51 @@
 #pragma once
 
 #include <iostream>
-#include <string>
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <vector>
-#include <iomanip>
+#include <unordered_map>
 #include <queue>
+#include <iomanip>
 
-// Чтение файла с данными построчно
-void readFile(std::vector<std::string>& input, const std::string& fileName);
+using namespace std;
 
-// Перевод строки, содержащей время XX:XX в число минут
-int timeToMinutes(const std::string&);
-
-// Перевод числа минут в строку с временем в формате XX:XX
-std::string minutesToTime(int);
-
-
-void readFile(std::vector<std::string>& input, const std::string &fileName)
-{
-    std::ifstream in;
-    in.open(fileName);
-
-    std::string str;
-    while (!in.eof())
-    {
-        str = " ";
-        std::getline(in, str);
-        input.push_back(str);
+vector<string> split(const string& str, char delimiter) {
+    vector<string> tokens;
+    string token;
+    istringstream tokenStream(str);
+    while (getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
     }
+    return tokens;
 }
 
-int timeToMinutes(const std::string& timeStr) {
-    int hours, minutes;
-    char colon;
-
-    std::stringstream ss(timeStr);
-    ss >> hours >> colon >> minutes;
-
+int timeToMinutes(const string& time) {
+    int hours = stoi(time.substr(0, 2));
+    int minutes = stoi(time.substr(3, 2));
     return hours * 60 + minutes;
 }
 
-std::string minutesToTime(int timeInt) {
-    int hours = timeInt / 60;
-    int minutes = timeInt % 60;
-
-    std::stringstream ss;
-    ss << std::setw(2) << std::setfill('0') << hours << ":" << std::setw(2) << std::setfill('0') << minutes;
-
-    return ss.str();
+string minutesToTime(int total_minutes) {
+    int hours = total_minutes / 60;
+    int minutes = total_minutes % 60;
+    ostringstream oss;
+    oss << setfill('0') << setw(2) << hours << ":" << setfill('0') << setw(2) << minutes;
+    return oss.str();
 }
+
+struct Client {
+    string name;
+    int table;
+    string arrival_time;
+    bool waiting;
+};
+
+struct Table {
+    int number;
+    string occupied_since;
+    bool is_occupied;
+    int total_earnings;
+    int total_occupied_minutes;
+};
