@@ -6,7 +6,7 @@
 #include <iomanip>
 #include <queue>
 
-#include "func.h";
+#include "func.h"
 
 //#include <ostream>
 
